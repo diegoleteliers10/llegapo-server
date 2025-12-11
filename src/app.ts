@@ -1,6 +1,12 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
+
 import cors from "cors";
+
 import helmet from "helmet";
+
 import morgan from "morgan";
 
 // Middleware imports
@@ -53,14 +59,21 @@ import {
   getVersion,
 } from "./controllers/appController";
 
+const NODE_ENV = process.env.NODE_ENV || "development";
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || "localhost";
+
 const app = express();
 
-// 🔧 Trust proxy configuración específica para Vercel
-if (process.env.NODE_ENV === "production") {
+// 🔧 Trust proxy configuración específica para entorno controlado por NODE_ENV
+
+if (NODE_ENV === "production") {
   // En producción (Vercel), confiar solo en el primer proxy
+
   app.set("trust proxy", 1);
 } else {
   // En desarrollo local, no confiar en proxies
+
   app.set("trust proxy", false);
 }
 
@@ -313,8 +326,9 @@ app.use(errorHandler);
 
 // ===== CONFIGURACIÓN DEL SERVIDOR =====
 
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || "localhost";
+/* PORT definido arriba; se elimina duplicado */
+
+/* HOST definido arriba; se elimina duplicado */
 
 // Función para iniciar el servidor
 export function startServer(): void {
