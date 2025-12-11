@@ -277,33 +277,46 @@ async function getStopArrivals(stopCode: string): Promise<any> {
       params: { t: jwtToken, codsimt: stopCode, codser: "" },
     });
 
-    // Normalizar siempre a array y loguear formatos inesperados
+    // Normalizar siempre a array desde data.servicios y loguear conteo
     let normalized: any[] = [];
+
     if (Array.isArray(data)) {
       normalized = data;
     } else if (data && typeof data === "object") {
-      // Intentar campos comunes
-      if (Array.isArray((data as any).arrivals)) {
-        normalized = (data as any).arrivals;
-      } else if (Array.isArray((data as any).result)) {
-        normalized = (data as any).result;
-      } else if (Array.isArray((data as any).data)) {
-        normalized = (data as any).data;
+      // Red.cl devuelve un objeto con clave 'servicios' que contiene el arreglo de llegadas
+      const servicios = (data as any).servicios;
+      if (Array.isArray(servicios)) {
+        normalized = servicios;
+        console.log(
+          `✅ Response obtenida para ${stopCode}: object [` +
+            Object.keys(data as any)
+              .slice(0, 10)
+              .join(", ") +
+            `]`,
+        );
+        console.log(
+          `✅ ${normalized.length} arrivals encontrados para ${stopCode}`,
+        );
       } else {
         console.warn(
           "⚠️ Formato inesperado de respuesta en predictorPlus/prediccion. Tipos y claves:",
+
           {
             keys: Object.keys(data as any).slice(0, 10),
+
             type: typeof data,
           },
         );
+
         normalized = [];
       }
     } else {
       console.warn(
         "⚠️ Respuesta de predictorPlus/prediccion no es un objeto ni array. Type:",
+
         typeof data,
       );
+
       normalized = [];
     }
 
@@ -347,20 +360,58 @@ async function getStopArrivals(stopCode: string): Promise<any> {
 async function getRoute(serviceCode: string): Promise<RouteData> {
   try {
     const url = `${RED_BASE}${ROUTE_ENDPOINT}`;
+
     const { data } = await axios.get(url, {
-      timeout: 8000,
+      timeout: 10000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+
+        Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
+
+        Accept: "*/*",
       },
       params: { codser: serviceCode },
     });
+
     return data;
   } catch (error: any) {
-    console.error(
-      `❌ Error obteniendo recorrido para ${serviceCode}:`,
-      error.message,
-    );
+    const isAxiosError = !!(error && (error as any).isAxiosError);
+    if (isAxiosError) {
+      const status = error.response?.status;
+      const contentType = error.response?.headers?.["content-type"];
+      const respData = error.response?.data;
+      let preview = "";
+      try {
+        if (typeof respData === "string") {
+          preview = respData.slice(0, 500);
+        } else if (respData != null) {
+          preview = JSON.stringify(respData).slice(0, 500);
+        }
+      } catch {
+        preview = "";
+      }
+      console.error(
+        `❌ Error obteniendo recorrido (Axios) ${serviceCode} - status=${status} ct=${contentType}: ${error.message}`,
+      );
+      if (preview) {
+        console.error("🧪 Body preview (500 chars):\n" + preview);
+      }
+      const headers = error.response?.headers;
+      if (headers) {
+        const safeHeaders = Object.fromEntries(
+          Object.entries(headers).slice(0, 20),
+        );
+
+        console.error("🪪 Response headers (truncated):", safeHeaders);
+      }
+      console.error("🔗 Request URL:", error.config?.url);
+    } else {
+      console.error(
+        `❌ Error obteniendo recorrido para ${serviceCode}:`,
+        error.message,
+      );
+    }
     throw error;
   }
 }
