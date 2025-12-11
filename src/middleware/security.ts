@@ -7,23 +7,12 @@ import { RateLimitConfig } from "../types";
  */
 export const stopArrivalsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: process.env.NODE_ENV === "production" ? 30 : 1000, // Más permisivo para debugging
-  message: {
-    error: "Demasiadas requests para arrivals, espera po 😎",
-    retryAfter: 60,
-  },
+  max: 1000, // Muy permisivo para debugging
   standardHeaders: true,
   legacyHeaders: false,
-  validate: {
-    trustProxy: false, // Deshabilitar validación estricta
-    xForwardedForHeader: false,
-  },
-  keyGenerator: (req: Request) => {
-    return req.ip || "unknown";
-  },
-  skip: (req: Request) => {
-    return process.env.NODE_ENV === "development";
-  },
+  validate: false, // Deshabilitar todas las validaciones
+  keyGenerator: () => "global", // Usar una key global para evitar problemas de IP
+  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
 });
 
 /**
@@ -31,23 +20,12 @@ export const stopArrivalsLimiter = rateLimit({
  */
 export const routeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: process.env.NODE_ENV === "production" ? 50 : 1000, // Más permisivo para debugging
-  message: {
-    error: "Demasiadas requests para rutas, espera po 😎",
-    retryAfter: 300,
-  },
+  max: 1000, // Muy permisivo para debugging
   standardHeaders: true,
   legacyHeaders: false,
-  validate: {
-    trustProxy: false,
-    xForwardedForHeader: false,
-  },
-  keyGenerator: (req: Request) => {
-    return req.ip || "unknown";
-  },
-  skip: (req: Request) => {
-    return process.env.NODE_ENV === "development";
-  },
+  validate: false, // Deshabilitar todas las validaciones
+  keyGenerator: () => "global", // Usar una key global
+  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
 });
 
 /**
@@ -55,23 +33,12 @@ export const routeLimiter = rateLimit({
  */
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: process.env.NODE_ENV === "production" ? 200 : 1000, // Más permisivo para debugging
-  message: {
-    error: "Demasiadas requests generales, relájate po 😎",
-    retryAfter: 900,
-  },
+  max: 1000, // Muy permisivo para debugging
   standardHeaders: true,
   legacyHeaders: false,
-  validate: {
-    trustProxy: false,
-    xForwardedForHeader: false,
-  },
-  keyGenerator: (req: Request) => {
-    return req.ip || "unknown";
-  },
-  skip: (req: Request) => {
-    return process.env.NODE_ENV === "development";
-  },
+  validate: false, // Deshabilitar todas las validaciones
+  keyGenerator: () => "global", // Usar una key global
+  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
 });
 
 /**
