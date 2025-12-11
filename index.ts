@@ -179,53 +179,21 @@ async function refreshJwt(): Promise<void> {
     const start = Date.now();
 
     if (process.env.NODE_ENV === "production") {
-      const predictorUrl = `${RED_BASE}${PREDICTOR_ENDPOINT}`;
-      const response = await axios.get(predictorUrl, {
-        timeout: 10000,
-
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-
-          Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
-
-          Accept: "*/*",
-        },
-        // No seguir redirecciones automáticamente para poder leer el Location
-        maxRedirects: 0,
-        validateStatus: () => true,
-
-        params: {
-          codsimt: "PA10",
-          codser: "",
-        },
-      });
-
-      const prodStatus = response.status;
-      const durationMs = Date.now() - start;
-      const prodContentType = response.headers?.["content-type"];
-
-      // Intentar extraer t desde Location
-      const locationHeader =
-        response.headers?.location || response.headers?.Location;
-      if (locationHeader && typeof locationHeader === "string") {
-        const urlObj = new URL(locationHeader, RED_BASE);
-        const tParam = urlObj.searchParams.get("t");
-        if (tParam) {
-          jwtToken = tParam;
-          tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
-          console.log(
-            `✅ JWT (prod) extraído de Location en predictorPlus: status=${prodStatus} duration=${durationMs}ms t_preview=${jwtToken.slice(0, 10)}...(redacted)`,
-          );
-          return;
-        }
+      // Usar token desde entorno en producción para evitar scraping y redirecciones
+      const envName = process.env.RED_ENV || "production";
+      const envToken = process.env.RED_JWT;
+      if (!envToken) {
+        throw new Error(
+          "RED_JWT no está definido en variables de entorno (producción)",
+        );
       }
+      jwtToken = envToken;
+      tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
 
-      // Si no hubo Location con t, loguear y fallar
       console.log(
-        `⚠️ No se encontró header Location con 't' en predictorPlus (prod). status=${prodStatus} ct=${prodContentType}`,
+        `✅ JWT (prod) cargado desde entorno (${envName}) t_preview=${jwtToken.slice(0, 10)}...(redacted)`,
       );
-      throw new Error("No se pudo extraer el JWT desde Location en producción");
+      return;
     } else {
       // En desarrollo: obtener JWT desde HTML del Home como antes
       const pageUrl = `${RED_BASE}/Home/`;
