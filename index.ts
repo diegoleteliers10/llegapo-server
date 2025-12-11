@@ -175,17 +175,89 @@ async function refreshJwt(): Promise<void> {
   try {
     console.log("🔄 Refrescando JWT token...");
 
-    const pageUrl = `${RED_BASE}/Home/`;
+    // En producción: obtener JWT desde header Location de predictorPlus/prediccion (sin t)
+    let html: string = "";
+    let status: number = 0;
+    let contentType: string | undefined;
+    let length: number = 0;
+    let preview: string = "";
     const start = Date.now();
-    const response = await axios.get(pageUrl, {
-      timeout: 10000,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
 
-      validateStatus: () => true,
-    });
+    if (process.env.NODE_ENV === "production") {
+      const predictorUrl = `${RED_BASE}${PREDICTOR_ENDPOINT}`;
+      const response = await axios.get(predictorUrl, {
+        timeout: 10000,
+
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+
+          Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
+
+          Accept: "*/*",
+        },
+        // No seguir redirecciones automáticamente para poder leer el Location
+        maxRedirects: 0,
+        validateStatus: () => true,
+
+        params: {
+          codsimt: "PA10",
+          codser: "",
+        },
+      });
+
+      status = response.status;
+      const durationMs = Date.now() - start;
+      contentType = response.headers?.["content-type"];
+
+      // Intentar extraer t desde Location
+      const locationHeader =
+        response.headers?.location || response.headers?.Location;
+      if (locationHeader && typeof locationHeader === "string") {
+        const urlObj = new URL(locationHeader, RED_BASE);
+        const tParam = urlObj.searchParams.get("t");
+        if (tParam) {
+          jwtToken = tParam;
+          tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
+          console.log(
+            `✅ JWT (prod) extraído de Location en predictorPlus: status=${status} duration=${durationMs}ms t_preview=${jwtToken.slice(0, 10)}...(redacted)`,
+          );
+          return;
+        }
+      }
+
+      // Si no hubo Location con t, loguear y fallar
+      console.log(
+        `⚠️ No se encontró header Location con 't' en predictorPlus (prod). status=${status}`,
+      );
+      throw new Error("No se pudo extraer el JWT desde Location en producción");
+    } else {
+      // En desarrollo: obtener JWT desde HTML del Home como antes
+      const pageUrl = `${RED_BASE}/Home/`;
+      const response = await axios.get(pageUrl, {
+        timeout: 10000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+        validateStatus: () => true,
+      });
+      const durationMs = Date.now() - start;
+      html = response.data;
+      status = response.status;
+      contentType = response.headers?.["content-type"];
+      length = typeof html === "string" ? html.length : 0;
+      preview = typeof html === "string" ? html.slice(0, 500) : "";
+      console.log(
+        `📥 Respuesta Red.cl Home - status=${status} duration=${durationMs}ms ct=${contentType} length=${length}`,
+      );
+      if (status >= 400) {
+        console.log(
+          `⚠️ Red.cl devolvió status ${status} en Home. Preview:\n${preview}`,
+        );
+      }
+    }
+
     const durationMs = Date.now() - start;
     const html = response.data;
     const status = response.status;
@@ -201,14 +273,16 @@ async function refreshJwt(): Promise<void> {
       );
     }
 
-    // Extraer JWT del HTML
+    // Extraer JWT del HTML (solo desarrollo)
 
     const jwtMatch = html.match(/var\s+jwt\s*=\s*["']([^"']+)["']/);
+
     if (!jwtMatch || !jwtMatch[1]) {
       console.error(
-        "❌ No se pudo extraer el JWT de la respuesta Home de Red.cl.",
+        "❌ No se pudo extraer el JWT de la respuesta Home de Red.cl (dev).",
       );
       console.error("🧪 Preview del HTML (500 chars):\n" + preview);
+
       console.error(
         "ℹ️ Status:",
         status,
@@ -217,12 +291,15 @@ async function refreshJwt(): Promise<void> {
         "Length:",
         length,
       );
+
       throw new Error("No se pudo extraer el JWT de la respuesta");
     }
 
     jwtToken = jwtMatch[1];
+
     tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
-    console.log("✅ JWT token actualizado exitosamente");
+
+    console.log("✅ JWT token actualizado exitosamente (dev)");
   } catch (error: any) {
     console.error("❌ Error al refrescar JWT:", error.message);
     throw error;
@@ -236,15 +313,19 @@ async function getStopArrivals(stopCode: string): Promise<any> {
     }
 
     const url = `${RED_BASE}${PREDICTOR_ENDPOINT}`;
+
     const { data } = await axios.get(url, {
       timeout: 8000,
+
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Referer: `${RED_BASE}/Home/`,
+
+        Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
       },
-      params: { t: stopCode, auth: jwtToken },
+      params: { t: jwtToken, codsimt: stopCode, codser: "" },
     });
+
     return data;
   } catch (error: any) {
     const isAxiosError = !!(error && error.isAxiosError);
