@@ -264,6 +264,17 @@ async function getStopArrivals(stopCode: string): Promise<any> {
 
     const url = `${RED_BASE}${PREDICTOR_ENDPOINT}`;
 
+    // Logging previo a la request
+    const reqParams = { t: jwtToken, codsimt: stopCode, codser: "" };
+    console.log(`Consultando arrivals para paradero: ${stopCode}`);
+    console.log(
+      "🔑 Token usado:",
+
+      jwtToken ? jwtToken.slice(0, 10) + "...(redacted)" : "none",
+    );
+    console.log("📡 URL:", url);
+    console.log("📦 Params:", JSON.stringify(reqParams));
+
     const { data } = await axios.get(url, {
       timeout: 8000,
 
@@ -273,9 +284,20 @@ async function getStopArrivals(stopCode: string): Promise<any> {
 
         Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
       },
-
-      params: { t: jwtToken, codsimt: stopCode, codser: "" },
+      params: reqParams,
     });
+
+    // Logging después de la respuesta
+    if (data && typeof data === "object") {
+      const keys = Object.keys(data as any);
+      console.log(
+        `✅ Response obtenida para ${stopCode}: object [` +
+          keys.slice(0, 10).join(", ") +
+          `]`,
+      );
+    } else {
+      console.log(`✅ Response obtenida para ${stopCode}: type=${typeof data}`);
+    }
 
     // Normalizar siempre a array desde data.servicios y loguear conteo
     let normalized: any[] = [];
@@ -363,6 +385,7 @@ async function getRoute(serviceCode: string): Promise<RouteData> {
 
     const { data } = await axios.get(url, {
       timeout: 10000,
+
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -371,7 +394,8 @@ async function getRoute(serviceCode: string): Promise<RouteData> {
 
         Accept: "*/*",
       },
-      params: { codser: serviceCode },
+
+      params: { codser: serviceCode, codsint: serviceCode },
     });
 
     return data;
