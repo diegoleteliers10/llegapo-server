@@ -281,8 +281,8 @@ export function startServer(): void {
    curl http://${HOST}:${PORT}/health
 
 🔐 Rate limits aplicados:
-   - Arrivals: 5 req/min por IP
-   - Routes: 10 req/5min por IP
+   - Arrivals: 10 req/min por IP
+   - Routes: 20 req/5min por IP
    - General: 100 req/15min por IP
 
 🌍 Entorno: ${process.env.NODE_ENV || "development"}

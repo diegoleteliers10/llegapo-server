@@ -20,25 +20,25 @@ API moderna en Express/Bun que consume las APIs internas de Red.cl para proporci
 
 | Endpoint | Descripción | Rate Limit | Nuevo |
 |----------|-------------|------------|-------|
-| `GET /v1/stops/:codsimt/arrivals` | Tiempos de llegada básicos | 5 req/min | |
-| `GET /v1/stops/:codsimt/arrivals/busId?busId=XXX` | **Arrivals de servicio específico** | 5 req/min | ✨ |
-| `GET /v1/stops/:codsimt/arrivals/formatted` | Arrivals formateados y legibles | 5 req/min | |
-| `GET /v1/stops/:codsimt/enhanced` | **Arrivals con análisis avanzado** | 5 req/min | ✨ |
-| `GET /v1/stops/:codsimt/info` | Información general del paradero | 5 req/min | ✨ |
-| `GET /v1/stops/:codsimt/statistics` | **Estadísticas del paradero** | 5 req/min | ✨ |
+| `GET /v1/stops/:codsimt/arrivals` | Tiempos de llegada básicos | 10 req/min | |
+| `GET /v1/stops/:codsimt/arrivals/busId?busId=XXX` | **Arrivals de servicio específico** | 10 req/min | ✨ |
+| `GET /v1/stops/:codsimt/arrivals/formatted` | Arrivals formateados y legibles | 10 req/min | |
+| `GET /v1/stops/:codsimt/enhanced` | **Arrivals con análisis avanzado** | 10 req/min | ✨ |
+| `GET /v1/stops/:codsimt/info` | Información general del paradero | 10 req/min | ✨ |
+| `GET /v1/stops/:codsimt/statistics` | **Estadísticas del paradero** | 10 req/min | ✨ |
 
 ### 🛣️ Rutas y Recorridos
 
 | Endpoint | Descripción | Rate Limit |
 |----------|-------------|------------|
-| `GET /v1/routes/:codser` | Recorrido básico (ida o regreso) | 10 req/5min |
-| `GET /v1/routes/:codser/formatted` | Recorrido formateado | 10 req/5min |
-| `GET /v1/routes/:codser/full` | Recorrido completo (ida Y regreso) | 10 req/5min |
-| `GET /v1/routes/:codser/stops` | Solo paraderos del servicio | 10 req/5min |
-| `GET /v1/routes/:codser/search?search=termino` | **Buscar paraderos en recorrido** | 10 req/5min |
-| `GET /v1/routes/:codser/schedules` | **Horarios del servicio** | 10 req/5min |
-| `GET /v1/routes/:codser/info` | **Información del servicio** | 10 req/5min |
-| `GET /v1/routes/:codser/compare?compare=otro` | **Comparar servicios** | 10 req/5min |
+| `GET /v1/routes/:codser` | Recorrido básico (ida o regreso) | 20 req/5min |
+| `GET /v1/routes/:codser/formatted` | Recorrido formateado | 20 req/5min |
+| `GET /v1/routes/:codser/full` | Recorrido completo (ida Y regreso) | 20 req/5min |
+| `GET /v1/routes/:codser/stops` | Solo paraderos del servicio | 20 req/5min |
+| `GET /v1/routes/:codser/search?search=termino` | **Buscar paraderos en recorrido** | 20 req/5min |
+| `GET /v1/routes/:codser/schedules` | **Horarios del servicio** | 20 req/5min |
+| `GET /v1/routes/:codser/info` | **Información del servicio** | 20 req/5min |
+| `GET /v1/routes/:codser/compare?compare=otro` | **Comparar servicios** | 20 req/5min |
 
 ### 🏥 Sistema y Utilidades
 
@@ -88,8 +88,8 @@ ALLOWED_ORIGINS=*           # CORS origins (separados por coma)
 API_KEY_REQUIRED=false      # Requiere API key (futuro)
 
 # Rate Limiting (opcional)
-ARRIVALS_RATE_LIMIT=5       # Requests por minuto para arrivals
-ROUTES_RATE_LIMIT=10        # Requests por 5 minutos para routes
+ARRIVALS_RATE_LIMIT=10      # Requests por minuto para arrivals
+ROUTES_RATE_LIMIT=20        # Requests por 5 minutos para routes
 ```
 
 ## 🧪 Ejemplos de Uso Detallados
@@ -347,8 +347,8 @@ llegapo-servidor/
 
 | Categoría | Límite | Ventana | Descripción |
 |-----------|--------|---------|-------------|
-| **Arrivals** | 5 requests | 1 minuto | Endpoints de tiempos de llegada |
-| **Routes** | 10 requests | 5 minutos | Endpoints de recorridos |
+| **Arrivals** | 10 requests | 1 minuto | Endpoints de tiempos de llegada |
+| **Routes** | 20 requests | 5 minutos | Endpoints de recorridos |
 | **General** | 100 requests | 15 minutos | Rate limit global para toda la API |
 
 **Nota**: En desarrollo (localhost), los rate limits están relajados.

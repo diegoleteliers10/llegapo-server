@@ -97,8 +97,8 @@ export const apiDocumentation = (req: Request, res: Response) => {
       "Health Check": `${baseUrl}/health`,
     },
     limits: {
-      arrivals: "5 requests por minuto",
-      routes: "10 requests por 5 minutos",
+      arrivals: "10 requests por minuto",
+      routes: "20 requests por 5 minutos",
       general: "100 requests por 15 minutos",
     },
   };

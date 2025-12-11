@@ -7,7 +7,7 @@ import { RateLimitConfig } from "../types";
  */
 export const stopArrivalsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 5, // max 5 requests por IP
+  max: 10, // max 10 requests por IP
   message: {
     error: "Demasiadas requests para arrivals, espera po 😎",
     retryAfter: 60,
@@ -34,7 +34,7 @@ export const stopArrivalsLimiter = rateLimit({
  */
 export const routeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 10, // max 10 requests por IP
+  max: 20, // max 20 requests por IP
   message: {
     error: "Demasiadas requests para rutas, espera po 😎",
     retryAfter: 300,

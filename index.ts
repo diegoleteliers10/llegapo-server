@@ -79,7 +79,7 @@ const generalLimiter = rateLimit({
 
 const stopArrivalsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 5,
+  max: 10,
   message: {
     error: "Demasiadas requests para arrivals, espera po 😎",
     retryAfter: 60,
@@ -98,7 +98,7 @@ const stopArrivalsLimiter = rateLimit({
 
 const routeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 10,
+  max: 20,
   message: {
     error: "Demasiadas requests para rutas, espera po 😎",
     retryAfter: 300,
@@ -699,8 +699,8 @@ app.get("/", (_req, res) => {
       "Paraderos del 405": `/v1/routes/405/stops`,
     },
     limits: {
-      arrivals: "5 requests por minuto",
-      routes: "10 requests por 5 minutos",
+      arrivals: "10 requests por minuto",
+      routes: "20 requests por 5 minutos",
       general: "100 requests por 15 minutos",
     },
     github: "https://github.com/tu-usuario/llegapo-servidor",
@@ -759,8 +759,8 @@ app.listen(PORT, () => {
    curl http://${HOST}:${PORT}/health
 
 🔐 Rate limits aplicados:
-   - Arrivals: 5 req/min
-   - Routes: 10 req/5min
+   - Arrivals: 10 req/min
+   - Routes: 20 req/5min
    - General: 100 req/15min
 
 🎯 Consumiendo APIs de Red.cl para Santiago de Chile
