@@ -1,25 +1,33 @@
-import axios, { AxiosRequestConfig } from 'axios';
-import { RedApiStopResponse, RedApiRouteResponse, JWTCache, RedClientError, AppConfig } from '../types';
+import axios, { AxiosRequestConfig } from "axios";
+import {
+  RedApiStopResponse,
+  RedApiRouteResponse,
+  JWTCache,
+  RedClientError,
+  AppConfig,
+} from "../types";
 
 export class RedClient {
   private jwtCache: JWTCache = {
-    token: '',
-    expiry: 0
+    token: "",
+    expiry: 0,
   };
 
   private config: AppConfig;
 
   constructor() {
     this.config = {
-      port: parseInt(process.env.PORT || '3000'),
-      host: process.env.HOST || 'localhost',
-      nodeEnv: process.env.NODE_ENV || 'development',
-      allowedOrigins: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['*'],
-      redBaseUrl: 'https://www.red.cl',
-      predictorEndpoint: '/predictorPlus/prediccion',
-      routeEndpoint: '/restservice_v2/rest/conocerecorrido',
+      port: parseInt(process.env.PORT || "3000"),
+      host: process.env.HOST || "localhost",
+      nodeEnv: process.env.NODE_ENV || "development",
+      allowedOrigins: process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(",")
+        : ["*"],
+      redBaseUrl: "https://www.red.cl",
+      predictorEndpoint: "/predictorPlus/prediccion",
+      routeEndpoint: "/restservice_v2/rest/conocerecorrido",
       jwtCacheTime: 5 * 60 * 1000, // 5 minutos
-      requestTimeout: 10000 // 10 segundos
+      requestTimeout: 10000, // 10 segundos
     };
   }
 
@@ -33,20 +41,20 @@ export class RedClient {
     const params = {
       t: this.jwtCache.token,
       codsimt: codsimt,
-      codser: ''
+      codser: "",
     };
 
     try {
       const requestConfig: AxiosRequestConfig = {
         timeout: this.config.requestTimeout,
         headers: {
-          'User-Agent': this.getUserAgent(),
-          'Referer': 'https://www.red.cl/planifica-tu-viaje/cuando-llega/',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br'
+          "User-Agent": this.getUserAgent(),
+          Referer: "https://www.red.cl/planifica-tu-viaje/cuando-llega/",
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+          "Accept-Encoding": "gzip, deflate, br",
         },
-        params
+        params,
       };
 
       console.log(`🚍 Consultando arrivals para paradero: ${codsimt}`);
@@ -57,7 +65,7 @@ export class RedClient {
       console.error(`❌ Error obteniendo arrivals para ${codsimt}:`, error);
       throw new RedClientError(
         `No se pudo obtener información de arrivals para el paradero ${codsimt}`,
-        500
+        500,
       );
     }
   }
@@ -72,14 +80,14 @@ export class RedClient {
       const requestConfig: AxiosRequestConfig = {
         timeout: this.config.requestTimeout,
         headers: {
-          'User-Agent': this.getUserAgent(),
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br'
+          "User-Agent": this.getUserAgent(),
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+          "Accept-Encoding": "gzip, deflate, br",
         },
         params: {
-          codsint: codser
-        }
+          codsint: codser,
+        },
       };
 
       console.log(`🛣️ Consultando recorrido para servicio: ${codser}`);
@@ -90,7 +98,7 @@ export class RedClient {
       console.error(`❌ Error obteniendo recorrido para ${codser}:`, error);
       throw new RedClientError(
         `No se pudo obtener información del recorrido para el servicio ${codser}`,
-        500
+        500,
       );
     }
   }
@@ -104,62 +112,178 @@ export class RedClient {
       return;
     }
 
+    console.log("🔑 Refrescando JWT token...");
+
+    // Estrategia 1: Método original (funciona localmente)
     try {
-      const pageUrl = `${this.config.redBaseUrl}/planifica-tu-viaje/cuando-llega/?codsimt=PC205`;
-
-      const requestConfig: AxiosRequestConfig = {
-        timeout: this.config.requestTimeout,
-        headers: {
-          'User-Agent': this.getUserAgent(),
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      };
-
-      console.log('🔑 Refrescando JWT token...');
-      const { data: html } = await axios.get(pageUrl, requestConfig);
-
-      // Buscar el token JWT en el HTML usando múltiples patrones
-      const jwtPatterns = [
-        /\$jwt\s*=\s*'([^']+)'/,
-        /jwt\s*:\s*'([^']+)'/,
-        /token\s*:\s*'([^']+)'/,
-        /"jwt"\s*:\s*"([^"]+)"/
-      ];
-
-      let jwtMatch: RegExpMatchArray | null = null;
-
-      for (const pattern of jwtPatterns) {
-        jwtMatch = html.match(pattern);
-        if (jwtMatch) {
-          break;
-        }
-      }
-
-      if (jwtMatch && jwtMatch[1]) {
-        try {
-          // Decodificar el token base64
-          this.jwtCache.token = Buffer.from(jwtMatch[1], 'base64').toString('utf-8');
-          this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
-
-          console.log('✅ JWT token refrescado exitosamente');
-        } catch (decodeError) {
-          // Si no se puede decodificar como base64, usar el token tal como está
-          this.jwtCache.token = jwtMatch[1];
-          this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
-
-          console.log('✅ JWT token obtenido exitosamente (sin decodificar)');
-        }
-      } else {
-        throw new Error('No se pudo extraer el token JWT del HTML');
-      }
+      const success = await this.tryOriginalJwtMethod();
+      if (success) return;
     } catch (error) {
-      console.error('❌ Error al refrescar JWT:', error);
-      throw new RedClientError('No se pudo obtener token de autenticación', 503);
+      console.log(
+        "🔄 Método original falló, intentando estrategias para Vercel...",
+      );
     }
+
+    // Estrategia 2: Múltiples URLs para Vercel
+    const vercelSuccess = await this.tryVercelStrategies();
+    if (!vercelSuccess) {
+      throw new RedClientError(
+        "No se pudo obtener token de autenticación después de múltiples intentos",
+        503,
+      );
+    }
+  }
+
+  /**
+   * Estrategia original que funciona localmente
+   */
+  private async tryOriginalJwtMethod(): Promise<boolean> {
+    const pageUrl = `${this.config.redBaseUrl}/planifica-tu-viaje/cuando-llega/?codsimt=PC205`;
+
+    const requestConfig: AxiosRequestConfig = {
+      timeout: this.config.requestTimeout,
+      headers: {
+        "User-Agent": this.getUserAgent(),
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    };
+
+    const { data: html } = await axios.get(pageUrl, requestConfig);
+    return this.extractAndSetJwt(html, "método original");
+  }
+
+  /**
+   * Estrategias específicas para Vercel
+   */
+  private async tryVercelStrategies(): Promise<boolean> {
+    const strategies = [
+      {
+        name: "Home page",
+        url: `${this.config.redBaseUrl}/`,
+        timeout: 15000,
+      },
+      {
+        name: "Planifica tu viaje",
+        url: `${this.config.redBaseUrl}/planifica-tu-viaje/`,
+        timeout: 15000,
+      },
+      {
+        name: "Cuando llega simple",
+        url: `${this.config.redBaseUrl}/planifica-tu-viaje/cuando-llega/`,
+        timeout: 20000,
+      },
+    ];
+
+    for (const strategy of strategies) {
+      try {
+        console.log(`🔄 Intentando estrategia: ${strategy.name}`);
+
+        const requestConfig: AxiosRequestConfig = {
+          timeout: strategy.timeout,
+          headers: {
+            "User-Agent": this.getVercelOptimizedUserAgent(),
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "es-CL,es-419;q=0.9,es;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            "Sec-Ch-Ua":
+              '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Linux"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+          },
+        };
+
+        const { data: html } = await axios.get(strategy.url, requestConfig);
+
+        if (this.extractAndSetJwt(html, strategy.name)) {
+          return true;
+        }
+
+        // Pequeña pausa entre intentos
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.log(
+          `❌ Estrategia ${strategy.name} falló:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Extrae el JWT del HTML y lo configura si es válido
+   */
+  private extractAndSetJwt(html: string, strategy: string): boolean {
+    // Verificar que tenemos HTML válido
+    if (!html || typeof html !== "string" || html.length < 100) {
+      console.log(`⚠️ HTML inválido en ${strategy}`);
+      return false;
+    }
+
+    // Patrones de búsqueda JWT (del más específico al más general)
+    const jwtPatterns = [
+      /\$jwt\s*=\s*'([^']+)'/,
+      /jwt\s*:\s*'([^']+)'/,
+      /token\s*:\s*'([^']+)'/,
+      /"jwt"\s*:\s*"([^"]+)"/,
+      /var\s+jwt\s*=\s*["']([^"']+)["']/,
+      /window\.jwt\s*=\s*["']([^"']+)["']/,
+    ];
+
+    for (const pattern of jwtPatterns) {
+      const jwtMatch = html.match(pattern);
+      if (jwtMatch && jwtMatch[1]) {
+        const rawToken = jwtMatch[1];
+
+        // Validar longitud mínima
+        if (rawToken.length < 20) {
+          continue;
+        }
+
+        try {
+          // Intentar decodificar como base64
+          this.jwtCache.token = Buffer.from(rawToken, "base64").toString(
+            "utf-8",
+          );
+          this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
+          console.log(`✅ JWT token obtenido con ${strategy} (decodificado)`);
+          return true;
+        } catch (decodeError) {
+          // Si no se puede decodificar, usar tal como está
+          this.jwtCache.token = rawToken;
+          this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
+          console.log(
+            `✅ JWT token obtenido con ${strategy} (sin decodificar)`,
+          );
+          return true;
+        }
+      }
+    }
+
+    console.log(`❌ No se encontró JWT en ${strategy}`);
+    return false;
+  }
+
+  /**
+   * User-Agent optimizado para Vercel
+   */
+  private getVercelOptimizedUserAgent(): string {
+    // En Vercel, usar un User-Agent más estándar y menos sospechoso
+    return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36";
   }
 
   /**
@@ -167,10 +291,10 @@ export class RedClient {
    */
   private getUserAgent(): string {
     const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     ];
 
     return userAgents[Math.floor(Math.random() * userAgents.length)];
@@ -180,22 +304,26 @@ export class RedClient {
    * Invalida el cache del JWT token (útil para testing)
    */
   public invalidateJwtCache(): void {
-    this.jwtCache.token = '';
+    this.jwtCache.token = "";
     this.jwtCache.expiry = 0;
-    console.log('🗑️ Cache de JWT token invalidado');
+    console.log("🗑️ Cache de JWT token invalidado");
   }
 
   /**
    * Obtiene información sobre el estado del cache JWT
    */
-  public getJwtCacheInfo(): { hasToken: boolean; expiresIn: number; isValid: boolean } {
+  public getJwtCacheInfo(): {
+    hasToken: boolean;
+    expiresIn: number;
+    isValid: boolean;
+  } {
     const now = Date.now();
     const expiresIn = Math.max(0, this.jwtCache.expiry - now);
 
     return {
       hasToken: Boolean(this.jwtCache.token),
       expiresIn: Math.floor(expiresIn / 1000), // en segundos
-      isValid: Boolean(this.jwtCache.token && now < this.jwtCache.expiry)
+      isValid: Boolean(this.jwtCache.token && now < this.jwtCache.expiry),
     };
   }
 

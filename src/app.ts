@@ -126,6 +126,68 @@ if (process.env.NODE_ENV === "development") {
   app.post("/v1/system/clear-jwt-cache", clearJwtCache);
 }
 
+// 🔍 Endpoint de debug JWT temporal para Vercel
+app.get(
+  "/debug/jwt",
+  async (_req: express.Request, res: express.Response): Promise<void> => {
+    try {
+      const { redClient } = await import("./utils/red-client");
+
+      // Información del entorno
+      const envInfo = {
+        nodeEnv: process.env.NODE_ENV,
+        platform: process.platform,
+        vercelRegion: process.env.VERCEL_REGION,
+        vercelUrl: process.env.VERCEL_URL,
+      };
+
+      // Estado actual del JWT
+      const jwtInfo = redClient.getJwtCacheInfo();
+
+      // Invalidar cache para forzar refresh
+      redClient.invalidateJwtCache();
+
+      console.log("🔍 Debug: Intentando obtener JWT para diagnóstico...");
+
+      // Intentar obtener arrivals de prueba
+      const testResult = await redClient.getStopArrivals("PC205");
+
+      res.json({
+        success: true,
+        environment: envInfo,
+        jwt: {
+          ...jwtInfo,
+          tokenLength: jwtInfo.hasToken
+            ? jwtInfo.hasToken.toString().length
+            : 0,
+          tokenPreview: jwtInfo.hasToken ? "Token presente" : "No token",
+        },
+        test: {
+          success: true,
+          arrivalsFound: testResult.servicios?.item?.length || 0,
+          hasData: Boolean(testResult.servicios?.item),
+        },
+        timestamp: Date.now(),
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("🔍 Debug error:", errorMessage);
+
+      res.status(500).json({
+        success: false,
+        error: errorMessage,
+        environment: {
+          nodeEnv: process.env.NODE_ENV,
+          platform: process.platform,
+          vercelRegion: process.env.VERCEL_REGION,
+        },
+        timestamp: Date.now(),
+      });
+    }
+  },
+);
+
 // ===== RUTAS DE PARADEROS =====
 
 // Middleware de validación para todas las rutas de paraderos
