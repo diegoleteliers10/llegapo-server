@@ -50,18 +50,19 @@ export class RouteService {
         data: route,
         timestamp: Date.now(),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as any;
       console.error(`❌ Error obteniendo recorrido ${codser}:`, error);
 
       // Log detallado del error para producción
-      if (error.response) {
-        console.error(`📡 Status Code: ${error.response.status}`);
-        console.error(`📦 Response Data:`, error.response.data);
-        console.error(`🔧 Response Headers:`, error.response.headers);
-      } else if (error.request) {
-        console.error(`📡 Request sent but no response:`, error.request);
+      if (errorObj.response) {
+        console.error(`📡 Status Code: ${errorObj.response.status}`);
+        console.error(`📦 Response Data:`, errorObj.response.data);
+        console.error(`🔧 Response Headers:`, errorObj.response.headers);
+      } else if (errorObj.request) {
+        console.error(`📡 Request sent but no response:`, errorObj.request);
       } else {
-        console.error(`⚙️ Error Message:`, error.message);
+        console.error(`⚙️ Error Message:`, errorObj.message);
       }
 
       if (error instanceof ValidationError) {

@@ -70,22 +70,23 @@ export class RedClient {
         Object.keys(data || {}),
       );
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as any;
       console.error(`❌ Error obteniendo arrivals para ${codsimt}:`, error);
 
       // Log detallado del error para producción
-      if (error.response) {
-        console.error(`📡 Status: ${error.response.status}`);
-        console.error(`📦 Data:`, error.response.data);
-        console.error(`🔧 Headers:`, error.response.headers);
-      } else if (error.request) {
-        console.error(`📡 No response received:`, error.request);
+      if (errorObj.response) {
+        console.error(`📡 Status: ${errorObj.response.status}`);
+        console.error(`📦 Data:`, errorObj.response.data);
+        console.error(`🔧 Headers:`, errorObj.response.headers);
+      } else if (errorObj.request) {
+        console.error(`📡 No response received:`, errorObj.request);
       } else {
-        console.error(`⚙️ Error config:`, error.message);
+        console.error(`⚙️ Error config:`, errorObj.message);
       }
 
       throw new RedClientError(
-        `No se pudo obtener información de arrivals para el paradero ${codsimt}: ${error.message}`,
+        `No se pudo obtener información de arrivals para el paradero ${codsimt}: ${errorObj.message}`,
         500,
       );
     }
@@ -115,7 +116,7 @@ export class RedClient {
       const { data } = await axios.get(url, requestConfig);
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`❌ Error obteniendo recorrido para ${codser}:`, error);
       throw new RedClientError(
         `No se pudo obtener información del recorrido para el servicio ${codser}`,
@@ -250,19 +251,20 @@ export class RedClient {
 
         // Pequeña pausa entre intentos
         await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorObj = error as any;
         console.log(
           `❌ Estrategia ${strategy.name} falló:`,
           error instanceof Error ? error.message : error,
         );
 
         // Log detallado para producción
-        if (error.response) {
-          console.log(`📡 Status: ${error.response.status}`);
+        if (errorObj.response) {
+          console.log(`📡 Status: ${errorObj.response.status}`);
           console.log(
             `📦 Response data:`,
-            error.response.data
-              ? error.response.data.substring(0, 200)
+            errorObj.response.data
+              ? errorObj.response.data.substring(0, 200)
               : "No data",
           );
         }
@@ -294,7 +296,7 @@ export class RedClient {
 
     for (const pattern of jwtPatterns) {
       const jwtMatch = html.match(pattern);
-      if (jwtMatch && jwtMatch[1]) {
+      if (jwtMatch?.[1]) {
         const rawToken = jwtMatch[1];
 
         // Validar longitud mínima
@@ -312,7 +314,7 @@ export class RedClient {
             `✅ JWT token obtenido con ${strategy} (decodificado, longitud: ${this.jwtCache.token.length})`,
           );
           return true;
-        } catch (decodeError) {
+        } catch {
           // Si no se puede decodificar, usar tal como está
           this.jwtCache.token = rawToken;
           this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
