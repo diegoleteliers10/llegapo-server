@@ -273,10 +273,41 @@ async function getStopArrivals(stopCode: string): Promise<any> {
 
         Referer: `${RED_BASE}/planifica-tu-viaje/cuando-llega/`,
       },
+
       params: { t: jwtToken, codsimt: stopCode, codser: "" },
     });
 
-    return data;
+    // Normalizar siempre a array y loguear formatos inesperados
+    let normalized: any[] = [];
+    if (Array.isArray(data)) {
+      normalized = data;
+    } else if (data && typeof data === "object") {
+      // Intentar campos comunes
+      if (Array.isArray((data as any).arrivals)) {
+        normalized = (data as any).arrivals;
+      } else if (Array.isArray((data as any).result)) {
+        normalized = (data as any).result;
+      } else if (Array.isArray((data as any).data)) {
+        normalized = (data as any).data;
+      } else {
+        console.warn(
+          "⚠️ Formato inesperado de respuesta en predictorPlus/prediccion. Tipos y claves:",
+          {
+            keys: Object.keys(data as any).slice(0, 10),
+            type: typeof data,
+          },
+        );
+        normalized = [];
+      }
+    } else {
+      console.warn(
+        "⚠️ Respuesta de predictorPlus/prediccion no es un objeto ni array. Type:",
+        typeof data,
+      );
+      normalized = [];
+    }
+
+    return normalized;
   } catch (error: any) {
     const isAxiosError = !!(error && error.isAxiosError);
     if (isAxiosError) {
