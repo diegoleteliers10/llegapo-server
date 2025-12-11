@@ -310,18 +310,19 @@ function formatRoute(routeData: any): any {
 }
 
 // 🚌 Endpoint para tiempos de llegada (raw)
-app.get("/v1/stops/:codsimt/arrivals", stopArrivalsLimiter, async (req: Request, res: Response) => {
+app.get("/v1/stops/:codsimt/arrivals", stopArrivalsLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codsimt } = req.params;
 
     // Validar código de parada
     const validation = validateStopCode(codsimt);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🚌 Consultando llegadas: ${codsimt}`);
@@ -359,18 +360,19 @@ app.get("/v1/stops/:codsimt/arrivals", stopArrivalsLimiter, async (req: Request,
 });
 
 // 🚌 Endpoint para tiempos de llegada (formateado)
-app.get("/v1/stops/:codsimt/arrivals/formatted", stopArrivalsLimiter, async (req: Request, res: Response) => {
+app.get("/v1/stops/:codsimt/arrivals/formatted", stopArrivalsLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codsimt } = req.params;
 
     // Validar código de parada
     const validation = validateStopCode(codsimt);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🚌 Consultando llegadas formateadas: ${codsimt}`);
@@ -411,18 +413,19 @@ app.get("/v1/stops/:codsimt/arrivals/formatted", stopArrivalsLimiter, async (req
 });
 
 // 🚌 Endpoint para recorrido (raw)
-app.get("/v1/routes/:codser", routeLimiter, async (req: Request, res: Response) => {
+app.get("/v1/routes/:codser", routeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codser } = req.params;
 
     // Validar código de servicio
     const validation = validateServiceCode(codser);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🚌 Obteniendo recorrido: ${codser}`);
@@ -471,18 +474,19 @@ app.get("/v1/routes/:codser", routeLimiter, async (req: Request, res: Response) 
 });
 
 // 🚌 Endpoint para recorrido (formateado)
-app.get("/v1/routes/:codser/formatted", routeLimiter, async (req: Request, res: Response) => {
+app.get("/v1/routes/:codser/formatted", routeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codser } = req.params;
 
     // Validar código de servicio
     const validation = validateServiceCode(codser);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🚌 Obteniendo recorrido formateado: ${codser}`);
@@ -523,18 +527,19 @@ app.get("/v1/routes/:codser/formatted", routeLimiter, async (req: Request, res: 
 });
 
 // Recorrido completo (ida y regreso)
-app.get("/v1/routes/:codser/full", routeLimiter, async (req: Request, res: Response) => {
+app.get("/v1/routes/:codser/full", routeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codser } = req.params;
 
     // Validar código de servicio
     const validation = validateServiceCode(codser);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🔄 Obteniendo recorrido completo: ${codser}`);
@@ -587,18 +592,19 @@ app.get("/v1/routes/:codser/full", routeLimiter, async (req: Request, res: Respo
 });
 
 // Solo paraderos del recorrido
-app.get("/v1/routes/:codser/stops", routeLimiter, async (req: Request, res: Response) => {
+app.get("/v1/routes/:codser/stops", routeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { codser } = req.params;
 
     // Validar código de servicio
     const validation = validateServiceCode(codser);
     if (!validation.valid) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: validation.error,
         timestamp: Date.now(),
       });
+      return;
     }
 
     console.log(`🚏 Obteniendo paraderos del recorrido: ${codser}`);
