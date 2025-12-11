@@ -1,7 +1,16 @@
-import { redClient } from '../utils/red-client';
-import { ApiResponse, RedRoute, FormattedRoute, ValidationError } from '../types';
-import { formatRoute, formatRouteStops, formatSchedule } from '../utils/formatters';
-import { validateAndCleanServiceCode } from '../utils/validators';
+import { redClient } from "../utils/red-client";
+import {
+  ApiResponse,
+  RedRoute,
+  FormattedRoute,
+  ValidationError,
+} from "../types";
+import {
+  formatRoute,
+  formatRouteStops,
+  formatSchedule,
+} from "../utils/formatters";
+import { validateAndCleanServiceCode } from "../utils/validators";
 
 export class RouteService {
   /**
@@ -21,26 +30,39 @@ export class RouteService {
       const routeData = data.ida || data.regreso;
 
       if (!routeData) {
-        throw new Error('No se encontraron datos de recorrido');
+        throw new Error("No se encontraron datos de recorrido");
       }
 
       const route: RedRoute = {
-        destino: routeData.destino || '',
+        destino: routeData.destino || "",
         paraderos: routeData.paraderos || [],
         path: routeData.path || [],
         horarios: routeData.horarios || [],
         itinerario: routeData.itinerario || false,
       };
 
-      console.log(`✅ Recorrido ${cleanCode} obtenido exitosamente - ${route.paraderos.length} paraderos`);
+      console.log(
+        `✅ Recorrido ${cleanCode} obtenido exitosamente - ${route.paraderos.length} paraderos`,
+      );
 
       return {
         success: true,
         data: route,
         timestamp: Date.now(),
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Error obteniendo recorrido ${codser}:`, error);
+
+      // Log detallado del error para producción
+      if (error.response) {
+        console.error(`📡 Status Code: ${error.response.status}`);
+        console.error(`📦 Response Data:`, error.response.data);
+        console.error(`🔧 Response Headers:`, error.response.headers);
+      } else if (error.request) {
+        console.error(`📡 Request sent but no response:`, error.request);
+      } else {
+        console.error(`⚙️ Error Message:`, error.message);
+      }
 
       if (error instanceof ValidationError) {
         throw error;
@@ -49,14 +71,17 @@ export class RouteService {
       return {
         success: false,
         data: {
-          destino: '',
+          destino: "",
           paraderos: [],
           path: [],
           horarios: [],
           itinerario: false,
         },
         timestamp: Date.now(),
-        error: error instanceof Error ? error.message : 'No se pudo obtener recorrido',
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo obtener recorrido",
       };
     }
   }
@@ -64,16 +89,18 @@ export class RouteService {
   /**
    * Obtiene el recorrido formateado para mejor legibilidad
    */
-  async getFormattedRoute(codser: string): Promise<ApiResponse<{
-    servicio: string;
-    route: FormattedRoute;
-    metadata: {
-      tieneIda: boolean;
-      tieneRegreso: boolean;
-      totalKilometros?: number;
-      comunasRecorridas: string[];
-    };
-  }>> {
+  async getFormattedRoute(codser: string): Promise<
+    ApiResponse<{
+      servicio: string;
+      route: FormattedRoute;
+      metadata: {
+        tieneIda: boolean;
+        tieneRegreso: boolean;
+        totalKilometros?: number;
+        comunasRecorridas: string[];
+      };
+    }>
+  > {
     try {
       console.log(`🛣️ Obteniendo recorrido formateado: ${codser}`);
 
@@ -85,21 +112,21 @@ export class RouteService {
           data: {
             servicio: codser,
             route: {
-              destino: '',
+              destino: "",
               totalParaderos: 0,
               paraderos: [],
               recorrido: { puntos: 0, coordenadas: [] },
               horarios: [],
-              tieneItinerario: false
+              tieneItinerario: false,
             },
             metadata: {
               tieneIda: false,
               tieneRegreso: false,
-              comunasRecorridas: []
-            }
+              comunasRecorridas: [],
+            },
           },
           timestamp: Date.now(),
-          error: routeResult.error
+          error: routeResult.error,
         };
       }
 
@@ -107,7 +134,9 @@ export class RouteService {
       const fullData = await redClient.getRoute(codser);
 
       const formattedRoute = formatRoute(routeResult.data);
-      const comunasRecorridas = [...new Set(routeResult.data.paraderos.map(p => p.comuna))];
+      const comunasRecorridas = [
+        ...new Set(routeResult.data.paraderos.map((p) => p.comuna)),
+      ];
 
       // Calcular distancia aproximada si hay path
       let totalKilometros: number | undefined;
@@ -124,41 +153,60 @@ export class RouteService {
             tieneIda: Boolean(fullData.ida),
             tieneRegreso: Boolean(fullData.regreso),
             totalKilometros,
-            comunasRecorridas
-          }
+            comunasRecorridas,
+          },
         },
         timestamp: routeResult.timestamp,
       };
     } catch (error) {
-      console.error(`❌ Error obteniendo recorrido formateado ${codser}:`, error);
+      console.error(
+        `❌ Error obteniendo recorrido formateado ${codser}:`,
+        error,
+      );
 
       if (error instanceof ValidationError) {
         throw error;
       }
 
-      throw new Error(error instanceof Error ? error.message : 'No se pudo obtener recorrido formateado');
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo obtener recorrido formateado",
+      );
     }
   }
 
   /**
    * Obtiene tanto ida como regreso del recorrido
    */
-  async getFullRoute(codser: string): Promise<ApiResponse<{
-    servicio: string;
-    ida?: RedRoute;
-    regreso?: RedRoute;
-    resumen: {
-      tieneIda: boolean;
-      tieneRegreso: boolean;
-      totalParaderosIda: number;
-      totalParaderosRegreso: number;
-      comunasUnicas: string[];
-      horarios: {
-        ida: Array<{ dia: string; horario: string; inicio: string; fin: string }>;
-        regreso: Array<{ dia: string; horario: string; inicio: string; fin: string }>;
+  async getFullRoute(codser: string): Promise<
+    ApiResponse<{
+      servicio: string;
+      ida?: RedRoute;
+      regreso?: RedRoute;
+      resumen: {
+        tieneIda: boolean;
+        tieneRegreso: boolean;
+        totalParaderosIda: number;
+        totalParaderosRegreso: number;
+        comunasUnicas: string[];
+        horarios: {
+          ida: Array<{
+            dia: string;
+            horario: string;
+            inicio: string;
+            fin: string;
+          }>;
+          regreso: Array<{
+            dia: string;
+            horario: string;
+            inicio: string;
+            fin: string;
+          }>;
+        };
       };
-    };
-  }>> {
+    }>
+  > {
     try {
       console.log(`🔄 Obteniendo recorrido completo: ${codser}`);
 
@@ -170,29 +218,31 @@ export class RouteService {
 
       if (data.ida) {
         result.ida = {
-          destino: data.ida.destino || '',
+          destino: data.ida.destino || "",
           paraderos: data.ida.paraderos || [],
           path: data.ida.path || [],
           horarios: data.ida.horarios || [],
           itinerario: data.ida.itinerario || false,
         };
-        result.ida.paraderos.forEach(p => comunasSet.add(p.comuna));
+        result.ida.paraderos.forEach((p) => comunasSet.add(p.comuna));
       }
 
       if (data.regreso) {
         result.regreso = {
-          destino: data.regreso.destino || '',
+          destino: data.regreso.destino || "",
           paraderos: data.regreso.paraderos || [],
           path: data.regreso.path || [],
           horarios: data.regreso.horarios || [],
           itinerario: data.regreso.itinerario || false,
         };
-        result.regreso.paraderos.forEach(p => comunasSet.add(p.comuna));
+        result.regreso.paraderos.forEach((p) => comunasSet.add(p.comuna));
       }
 
       const comunasUnicas = Array.from(comunasSet);
 
-      console.log(`✅ Recorrido completo ${cleanCode} obtenido - Ida: ${!!result.ida}, Regreso: ${!!result.regreso}`);
+      console.log(
+        `✅ Recorrido completo ${cleanCode} obtenido - Ida: ${!!result.ida}, Regreso: ${!!result.regreso}`,
+      );
 
       return {
         success: true,
@@ -208,9 +258,11 @@ export class RouteService {
             comunasUnicas,
             horarios: {
               ida: result.ida ? formatSchedule(result.ida.horarios) : [],
-              regreso: result.regreso ? formatSchedule(result.regreso.horarios) : []
-            }
-          }
+              regreso: result.regreso
+                ? formatSchedule(result.regreso.horarios)
+                : [],
+            },
+          },
         },
         timestamp: Date.now(),
       };
@@ -231,11 +283,14 @@ export class RouteService {
             totalParaderosIda: 0,
             totalParaderosRegreso: 0,
             comunasUnicas: [],
-            horarios: { ida: [], regreso: [] }
-          }
+            horarios: { ida: [], regreso: [] },
+          },
         },
         timestamp: Date.now(),
-        error: error instanceof Error ? error.message : 'No se pudo obtener recorrido completo',
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo obtener recorrido completo",
       };
     }
   }
@@ -243,21 +298,23 @@ export class RouteService {
   /**
    * Obtiene solo los paraderos de un recorrido
    */
-  async getRouteStops(codser: string): Promise<ApiResponse<{
-    servicio: string;
-    totalParaderos: number;
-    paraderos: Array<{
-      codigo: string;
-      nombre: string;
-      comuna: string;
-      ubicacion: { latitud: number; longitud: number };
-    }>;
-    comunas: Array<{
-      nombre: string;
+  async getRouteStops(codser: string): Promise<
+    ApiResponse<{
+      servicio: string;
       totalParaderos: number;
-      paraderos: string[];
-    }>;
-  }>> {
+      paraderos: Array<{
+        codigo: string;
+        nombre: string;
+        comuna: string;
+        ubicacion: { latitud: number; longitud: number };
+      }>;
+      comunas: Array<{
+        nombre: string;
+        totalParaderos: number;
+        paraderos: string[];
+      }>;
+    }>
+  > {
     try {
       console.log(`🚏 Obteniendo paraderos del recorrido: ${codser}`);
 
@@ -270,10 +327,10 @@ export class RouteService {
             servicio: codser,
             totalParaderos: 0,
             paraderos: [],
-            comunas: []
+            comunas: [],
           },
           timestamp: Date.now(),
-          error: routeResult.error
+          error: routeResult.error,
         };
       }
 
@@ -281,18 +338,20 @@ export class RouteService {
 
       // Agrupar por comunas
       const comunasMap = new Map<string, string[]>();
-      stops.forEach(stop => {
+      stops.forEach((stop) => {
         if (!comunasMap.has(stop.comuna)) {
           comunasMap.set(stop.comuna, []);
         }
         comunasMap.get(stop.comuna)!.push(stop.codigo);
       });
 
-      const comunas = Array.from(comunasMap.entries()).map(([nombre, paraderos]) => ({
-        nombre,
-        totalParaderos: paraderos.length,
-        paraderos
-      }));
+      const comunas = Array.from(comunasMap.entries()).map(
+        ([nombre, paraderos]) => ({
+          nombre,
+          totalParaderos: paraderos.length,
+          paraderos,
+        }),
+      );
 
       return {
         success: true,
@@ -300,12 +359,15 @@ export class RouteService {
           servicio: codser.toUpperCase(),
           totalParaderos: stops.length,
           paraderos: stops,
-          comunas
+          comunas,
         },
         timestamp: routeResult.timestamp,
       };
     } catch (error) {
-      console.error(`❌ Error obteniendo paraderos del recorrido ${codser}:`, error);
+      console.error(
+        `❌ Error obteniendo paraderos del recorrido ${codser}:`,
+        error,
+      );
 
       if (error instanceof ValidationError) {
         throw error;
@@ -317,10 +379,13 @@ export class RouteService {
           servicio: codser,
           totalParaderos: 0,
           paraderos: [],
-          comunas: []
+          comunas: [],
         },
         timestamp: Date.now(),
-        error: error instanceof Error ? error.message : 'No se pudieron obtener los paraderos'
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron obtener los paraderos",
       };
     }
   }
@@ -328,32 +393,40 @@ export class RouteService {
   /**
    * Busca paraderos específicos dentro de un recorrido
    */
-  async findStopsInRoute(codser: string, searchTerm: string): Promise<ApiResponse<{
-    servicio: string;
-    terminoBusqueda: string;
-    paraderos: Array<{
-      codigo: string;
-      nombre: string;
-      comuna: string;
-      ubicacion: { latitud: number; longitud: number };
-      indice: number;
-    }>;
-    totalEncontrados: number;
-  }>> {
+  async findStopsInRoute(
+    codser: string,
+    searchTerm: string,
+  ): Promise<
+    ApiResponse<{
+      servicio: string;
+      terminoBusqueda: string;
+      paraderos: Array<{
+        codigo: string;
+        nombre: string;
+        comuna: string;
+        ubicacion: { latitud: number; longitud: number };
+        indice: number;
+      }>;
+      totalEncontrados: number;
+    }>
+  > {
     try {
       const stopsResult = await this.getRouteStops(codser);
 
       if (!stopsResult.success) {
-        throw new Error(stopsResult.error || 'No se pudieron obtener paraderos');
+        throw new Error(
+          stopsResult.error || "No se pudieron obtener paraderos",
+        );
       }
 
       const searchLower = searchTerm.toLowerCase();
       const foundStops = stopsResult.data.paraderos
         .map((stop, index) => ({ ...stop, indice: index }))
-        .filter(stop =>
-          stop.codigo.toLowerCase().includes(searchLower) ||
-          stop.nombre.toLowerCase().includes(searchLower) ||
-          stop.comuna.toLowerCase().includes(searchLower)
+        .filter(
+          (stop) =>
+            stop.codigo.toLowerCase().includes(searchLower) ||
+            stop.nombre.toLowerCase().includes(searchLower) ||
+            stop.comuna.toLowerCase().includes(searchLower),
         );
 
       return {
@@ -362,63 +435,81 @@ export class RouteService {
           servicio: codser.toUpperCase(),
           terminoBusqueda: searchTerm,
           paraderos: foundStops,
-          totalEncontrados: foundStops.length
+          totalEncontrados: foundStops.length,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(`❌ Error buscando paraderos en recorrido ${codser}:`, error);
+      console.error(
+        `❌ Error buscando paraderos en recorrido ${codser}:`,
+        error,
+      );
 
       if (error instanceof ValidationError) {
         throw error;
       }
 
-      throw new Error(error instanceof Error ? error.message : 'No se pudo realizar la búsqueda');
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo realizar la búsqueda",
+      );
     }
   }
 
   /**
    * Obtiene información detallada de horarios de un servicio
    */
-  async getRouteSchedules(codser: string): Promise<ApiResponse<{
-    servicio: string;
-    horarios: {
-      ida: Array<{
-        dia: string;
-        horario: string;
-        inicio: string;
-        fin: string;
-        duracionHoras: number;
-      }>;
-      regreso: Array<{
-        dia: string;
-        horario: string;
-        inicio: string;
-        fin: string;
-        duracionHoras: number;
-      }>;
-    };
-    resumen: {
-      operaLunesViernes: boolean;
-      operaSabados: boolean;
-      operaDomingos: boolean;
-      horarioMasAmplio: string;
-      totalHorasOperacion: number;
-    };
-  }>> {
+  async getRouteSchedules(codser: string): Promise<
+    ApiResponse<{
+      servicio: string;
+      horarios: {
+        ida: Array<{
+          dia: string;
+          horario: string;
+          inicio: string;
+          fin: string;
+          duracionHoras: number;
+        }>;
+        regreso: Array<{
+          dia: string;
+          horario: string;
+          inicio: string;
+          fin: string;
+          duracionHoras: number;
+        }>;
+      };
+      resumen: {
+        operaLunesViernes: boolean;
+        operaSabados: boolean;
+        operaDomingos: boolean;
+        horarioMasAmplio: string;
+        totalHorasOperacion: number;
+      };
+    }>
+  > {
     try {
       const fullRouteResult = await this.getFullRoute(codser);
 
       if (!fullRouteResult.success) {
-        throw new Error(fullRouteResult.error || 'No se pudieron obtener horarios');
+        throw new Error(
+          fullRouteResult.error || "No se pudieron obtener horarios",
+        );
       }
 
       const data = fullRouteResult.data;
 
-      const processSchedules = (horarios: Array<{ dia: string; horario: string; inicio: string; fin: string }>) => {
-        return horarios.map(h => ({
+      const processSchedules = (
+        horarios: Array<{
+          dia: string;
+          horario: string;
+          inicio: string;
+          fin: string;
+        }>,
+      ) => {
+        return horarios.map((h) => ({
           ...h,
-          duracionHoras: this.calculateDurationHours(h.inicio, h.fin)
+          duracionHoras: this.calculateDurationHours(h.inicio, h.fin),
         }));
       };
 
@@ -426,17 +517,23 @@ export class RouteService {
       const horariosRegreso = processSchedules(data.resumen.horarios.regreso);
 
       // Análisis de horarios
-      const todosTipos = [...horariosIda, ...horariosRegreso].map(h => h.dia);
-      const operaLunesViernes = todosTipos.some(t => t.includes('Lunes') || t.includes('Viernes'));
-      const operaSabados = todosTipos.some(t => t.includes('Sábado'));
-      const operaDomingos = todosTipos.some(t => t.includes('Domingo'));
+      const todosTipos = [...horariosIda, ...horariosRegreso].map((h) => h.dia);
+      const operaLunesViernes = todosTipos.some(
+        (t) => t.includes("Lunes") || t.includes("Viernes"),
+      );
+      const operaSabados = todosTipos.some((t) => t.includes("Sábado"));
+      const operaDomingos = todosTipos.some((t) => t.includes("Domingo"));
 
-      const todasDuraciones = [...horariosIda, ...horariosRegreso].map(h => h.duracionHoras);
+      const todasDuraciones = [...horariosIda, ...horariosRegreso].map(
+        (h) => h.duracionHoras,
+      );
       const totalHorasOperacion = Math.max(...todasDuraciones, 0);
 
-      const horarioMasAmplio = [...horariosIda, ...horariosRegreso]
-        .reduce((prev, current) => (current.duracionHoras > prev.duracionHoras) ? current : prev,
-               { dia: '', horario: '', duracionHoras: 0 }).horario;
+      const horarioMasAmplio = [...horariosIda, ...horariosRegreso].reduce(
+        (prev, current) =>
+          current.duracionHoras > prev.duracionHoras ? current : prev,
+        { dia: "", horario: "", duracionHoras: 0 },
+      ).horario;
 
       return {
         success: true,
@@ -444,26 +541,33 @@ export class RouteService {
           servicio: codser.toUpperCase(),
           horarios: {
             ida: horariosIda,
-            regreso: horariosRegreso
+            regreso: horariosRegreso,
           },
           resumen: {
             operaLunesViernes,
             operaSabados,
             operaDomingos,
             horarioMasAmplio,
-            totalHorasOperacion
-          }
+            totalHorasOperacion,
+          },
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(`❌ Error obteniendo horarios del servicio ${codser}:`, error);
+      console.error(
+        `❌ Error obteniendo horarios del servicio ${codser}:`,
+        error,
+      );
 
       if (error instanceof ValidationError) {
         throw error;
       }
 
-      throw new Error(error instanceof Error ? error.message : 'No se pudieron obtener horarios');
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron obtener horarios",
+      );
     }
   }
 
@@ -486,15 +590,22 @@ export class RouteService {
   /**
    * Calcula la distancia entre dos puntos usando la fórmula de Haversine
    */
-  private haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private haversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Radio de la Tierra en km
     const dLat = this.deg2rad(lat2 - lat1);
     const dLon = this.deg2rad(lon2 - lon1);
     const a =
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c;
     return d;
   }
@@ -503,7 +614,7 @@ export class RouteService {
    * Convierte grados a radianes
    */
   private deg2rad(deg: number): number {
-    return deg * (Math.PI/180);
+    return deg * (Math.PI / 180);
   }
 
   /**
@@ -511,8 +622,8 @@ export class RouteService {
    */
   private calculateDurationHours(inicio: string, fin: string): number {
     try {
-      const [inicioHour, inicioMin] = inicio.split(':').map(Number);
-      const [finHour, finMin] = fin.split(':').map(Number);
+      const [inicioHour, inicioMin] = inicio.split(":").map(Number);
+      const [finHour, finMin] = fin.split(":").map(Number);
 
       const inicioMinutos = inicioHour * 60 + inicioMin;
       const finMinutos = finHour * 60 + finMin;

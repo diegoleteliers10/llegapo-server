@@ -55,6 +55,15 @@ import {
 
 const app = express();
 
+// 🔧 Trust proxy configuración específica para Vercel
+if (process.env.NODE_ENV === "production") {
+  // En producción (Vercel), confiar solo en el primer proxy
+  app.set("trust proxy", 1);
+} else {
+  // En desarrollo local, no confiar en proxies
+  app.set("trust proxy", false);
+}
+
 // 🛡️ Security middleware (aplicado primero)
 app.use(
   helmet({

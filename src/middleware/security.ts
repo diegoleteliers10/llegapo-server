@@ -7,25 +7,22 @@ import { RateLimitConfig } from "../types";
  */
 export const stopArrivalsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 10, // max 10 requests por IP
+  max: process.env.NODE_ENV === "production" ? 30 : 1000, // Más permisivo para debugging
   message: {
     error: "Demasiadas requests para arrivals, espera po 😎",
     retryAfter: 60,
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
-    res.status(429).json({
-      success: false,
-      error: "Demasiadas requests para arrivals, espera po 😎",
-      retryAfter: 60,
-      timestamp: Date.now(),
-      tip: "Los tiempos de llegada se actualizan cada minuto, no necesitas consultar tan seguido",
-    });
+  validate: {
+    trustProxy: false, // Deshabilitar validación estricta
+    xForwardedForHeader: false,
+  },
+  keyGenerator: (req: Request) => {
+    return req.ip || "unknown";
   },
   skip: (req: Request) => {
-    // Permitir más requests en desarrollo
-    return process.env.NODE_ENV === "development" && req.ip === "127.0.0.1";
+    return process.env.NODE_ENV === "development";
   },
 });
 
@@ -34,24 +31,22 @@ export const stopArrivalsLimiter = rateLimit({
  */
 export const routeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 20, // max 20 requests por IP
+  max: process.env.NODE_ENV === "production" ? 50 : 1000, // Más permisivo para debugging
   message: {
     error: "Demasiadas requests para rutas, espera po 😎",
     retryAfter: 300,
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
-    res.status(429).json({
-      success: false,
-      error: "Demasiadas requests para rutas, espera po 😎",
-      retryAfter: 300,
-      timestamp: Date.now(),
-      tip: "La información de rutas no cambia frecuentemente, puedes cachear estos datos",
-    });
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+  },
+  keyGenerator: (req: Request) => {
+    return req.ip || "unknown";
   },
   skip: (req: Request) => {
-    return process.env.NODE_ENV === "development" && req.ip === "127.0.0.1";
+    return process.env.NODE_ENV === "development";
   },
 });
 
@@ -60,24 +55,22 @@ export const routeLimiter = rateLimit({
  */
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // max 100 requests por IP
+  max: process.env.NODE_ENV === "production" ? 200 : 1000, // Más permisivo para debugging
   message: {
     error: "Demasiadas requests generales, relájate po 😎",
     retryAfter: 900,
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
-    res.status(429).json({
-      success: false,
-      error: "Demasiadas requests generales, relájate po 😎",
-      retryAfter: 900,
-      timestamp: Date.now(),
-      tip: "Has excedido el límite general de requests. Considera implementar cache del lado del cliente",
-    });
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+  },
+  keyGenerator: (req: Request) => {
+    return req.ip || "unknown";
   },
   skip: (req: Request) => {
-    return process.env.NODE_ENV === "development" && req.ip === "127.0.0.1";
+    return process.env.NODE_ENV === "development";
   },
 });
 
@@ -93,6 +86,9 @@ export const strictLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    return req.ip || req.connection?.remoteAddress || "unknown";
+  },
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       success: false,

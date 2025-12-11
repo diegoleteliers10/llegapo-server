@@ -58,13 +58,34 @@ export class RedClient {
       };
 
       console.log(`🚍 Consultando arrivals para paradero: ${codsimt}`);
+      console.log(`🔑 Token usado: ${this.jwtCache.token.substring(0, 20)}...`);
+      console.log(`📡 URL: ${url}`);
+      console.log(`📦 Params:`, JSON.stringify(params));
+
       const { data } = await axios.get(url, requestConfig);
 
+      console.log(
+        `✅ Response obtenida para ${codsimt}:`,
+        typeof data,
+        Object.keys(data || {}),
+      );
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Error obteniendo arrivals para ${codsimt}:`, error);
+
+      // Log detallado del error para producción
+      if (error.response) {
+        console.error(`📡 Status: ${error.response.status}`);
+        console.error(`📦 Data:`, error.response.data);
+        console.error(`🔧 Headers:`, error.response.headers);
+      } else if (error.request) {
+        console.error(`📡 No response received:`, error.request);
+      } else {
+        console.error(`⚙️ Error config:`, error.message);
+      }
+
       throw new RedClientError(
-        `No se pudo obtener información de arrivals para el paradero ${codsimt}`,
+        `No se pudo obtener información de arrivals para el paradero ${codsimt}: ${error.message}`,
         500,
       );
     }
@@ -94,7 +115,7 @@ export class RedClient {
       const { data } = await axios.get(url, requestConfig);
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Error obteniendo recorrido para ${codser}:`, error);
       throw new RedClientError(
         `No se pudo obtener información del recorrido para el servicio ${codser}`,
@@ -113,14 +134,20 @@ export class RedClient {
     }
 
     console.log("🔑 Refrescando JWT token...");
+    console.log(`🌍 Entorno: ${this.config.nodeEnv}`);
+    console.log(
+      `⏰ Token expiró: ${new Date(this.jwtCache.expiry).toISOString()}`,
+    );
 
     // Estrategia 1: Método original (funciona localmente)
     try {
+      console.log("🎯 Intentando método original...");
       const success = await this.tryOriginalJwtMethod();
       if (success) return;
     } catch (error) {
       console.log(
         "🔄 Método original falló, intentando estrategias para Vercel...",
+        error instanceof Error ? error.message : error,
       );
     }
 
@@ -153,7 +180,12 @@ export class RedClient {
       },
     };
 
+    console.log(`📡 Requesting: ${pageUrl}`);
     const { data: html } = await axios.get(pageUrl, requestConfig);
+
+    console.log(`📄 HTML recibido: ${html ? html.length : 0} caracteres`);
+    console.log(`📄 Preview: ${html ? html.substring(0, 200) : "No HTML"}...`);
+
     return this.extractAndSetJwt(html, "método original");
   }
 
@@ -205,7 +237,12 @@ export class RedClient {
           },
         };
 
+        console.log(`📡 Requesting: ${strategy.url}`);
         const { data: html } = await axios.get(strategy.url, requestConfig);
+
+        console.log(
+          `📄 HTML recibido en ${strategy.name}: ${html ? html.length : 0} caracteres`,
+        );
 
         if (this.extractAndSetJwt(html, strategy.name)) {
           return true;
@@ -213,11 +250,22 @@ export class RedClient {
 
         // Pequeña pausa entre intentos
         await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error) {
+      } catch (error: any) {
         console.log(
           `❌ Estrategia ${strategy.name} falló:`,
           error instanceof Error ? error.message : error,
         );
+
+        // Log detallado para producción
+        if (error.response) {
+          console.log(`📡 Status: ${error.response.status}`);
+          console.log(
+            `📦 Response data:`,
+            error.response.data
+              ? error.response.data.substring(0, 200)
+              : "No data",
+          );
+        }
       }
     }
 
@@ -260,14 +308,16 @@ export class RedClient {
             "utf-8",
           );
           this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
-          console.log(`✅ JWT token obtenido con ${strategy} (decodificado)`);
+          console.log(
+            `✅ JWT token obtenido con ${strategy} (decodificado, longitud: ${this.jwtCache.token.length})`,
+          );
           return true;
         } catch (decodeError) {
           // Si no se puede decodificar, usar tal como está
           this.jwtCache.token = rawToken;
           this.jwtCache.expiry = Date.now() + this.config.jwtCacheTime;
           console.log(
-            `✅ JWT token obtenido con ${strategy} (sin decodificar)`,
+            `✅ JWT token obtenido con ${strategy} (sin decodificar, longitud: ${rawToken.length})`,
           );
           return true;
         }
@@ -275,6 +325,8 @@ export class RedClient {
     }
 
     console.log(`❌ No se encontró JWT en ${strategy}`);
+    console.log(`🔍 Patrones probados: ${jwtPatterns.length}`);
+    console.log(`📄 HTML sample para debug:`, html.substring(0, 500));
     return false;
   }
 
