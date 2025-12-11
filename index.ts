@@ -176,11 +176,6 @@ async function refreshJwt(): Promise<void> {
     console.log("🔄 Refrescando JWT token...");
 
     // En producción: obtener JWT desde header Location de predictorPlus/prediccion (sin t)
-    let html: string = "";
-    let status: number = 0;
-    let contentType: string | undefined;
-    let length: number = 0;
-    let preview: string = "";
     const start = Date.now();
 
     if (process.env.NODE_ENV === "production") {
@@ -206,9 +201,9 @@ async function refreshJwt(): Promise<void> {
         },
       });
 
-      status = response.status;
+      const prodStatus = response.status;
       const durationMs = Date.now() - start;
-      contentType = response.headers?.["content-type"];
+      const prodContentType = response.headers?.["content-type"];
 
       // Intentar extraer t desde Location
       const locationHeader =
@@ -220,7 +215,7 @@ async function refreshJwt(): Promise<void> {
           jwtToken = tParam;
           tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
           console.log(
-            `✅ JWT (prod) extraído de Location en predictorPlus: status=${status} duration=${durationMs}ms t_preview=${jwtToken.slice(0, 10)}...(redacted)`,
+            `✅ JWT (prod) extraído de Location en predictorPlus: status=${prodStatus} duration=${durationMs}ms t_preview=${jwtToken.slice(0, 10)}...(redacted)`,
           );
           return;
         }
@@ -228,7 +223,7 @@ async function refreshJwt(): Promise<void> {
 
       // Si no hubo Location con t, loguear y fallar
       console.log(
-        `⚠️ No se encontró header Location con 't' en predictorPlus (prod). status=${status}`,
+        `⚠️ No se encontró header Location con 't' en predictorPlus (prod). status=${prodStatus} ct=${prodContentType}`,
       );
       throw new Error("No se pudo extraer el JWT desde Location en producción");
     } else {
@@ -243,63 +238,50 @@ async function refreshJwt(): Promise<void> {
         validateStatus: () => true,
       });
       const durationMs = Date.now() - start;
-      html = response.data;
-      status = response.status;
-      contentType = response.headers?.["content-type"];
-      length = typeof html === "string" ? html.length : 0;
-      preview = typeof html === "string" ? html.slice(0, 500) : "";
+      const devHtml = response.data;
+      const devStatus = response.status;
+      const devContentType = response.headers?.["content-type"];
+      const devLength = typeof devHtml === "string" ? devHtml.length : 0;
+      const devPreview =
+        typeof devHtml === "string" ? devHtml.slice(0, 500) : "";
       console.log(
-        `📥 Respuesta Red.cl Home - status=${status} duration=${durationMs}ms ct=${contentType} length=${length}`,
+        `📥 Respuesta Red.cl Home - status=${devStatus} duration=${durationMs}ms ct=${devContentType} length=${devLength}`,
       );
-      if (status >= 400) {
+      if (devStatus >= 400) {
         console.log(
-          `⚠️ Red.cl devolvió status ${status} en Home. Preview:\n${preview}`,
+          `⚠️ Red.cl devolvió status ${devStatus} en Home. Preview:\n${devPreview}`,
         );
       }
+
+      // Extraer JWT del HTML (solo desarrollo)
+      const jwtMatch =
+        typeof devHtml === "string"
+          ? devHtml.match(/var\s+jwt\s*=\s*["']([^"']+)["']/)
+          : null;
+
+      if (!jwtMatch || !jwtMatch[1]) {
+        console.error(
+          "❌ No se pudo extraer el JWT de la respuesta Home de Red.cl (dev).",
+        );
+        console.error("🧪 Preview del HTML (500 chars):\n" + devPreview);
+        console.error(
+          "ℹ️ Status:",
+          devStatus,
+          "Content-Type:",
+          devContentType,
+          "Length:",
+          devLength,
+        );
+        throw new Error("No se pudo extraer el JWT de la respuesta");
+      }
+
+      jwtToken = jwtMatch[1];
+      tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
+      console.log("✅ JWT token actualizado exitosamente (dev)");
+      return;
     }
 
-    const durationMs = Date.now() - start;
-    const html = response.data;
-    const status = response.status;
-    const contentType = response.headers?.["content-type"];
-    const length = typeof html === "string" ? html.length : 0;
-    const preview = typeof html === "string" ? html.slice(0, 500) : "";
-    console.log(
-      `📥 Respuesta Red.cl Home - status=${status} duration=${durationMs}ms ct=${contentType} length=${length}`,
-    );
-    if (status >= 400) {
-      console.log(
-        `⚠️ Red.cl devolvió status ${status} en Home. Preview:\n${preview}`,
-      );
-    }
-
-    // Extraer JWT del HTML (solo desarrollo)
-
-    const jwtMatch = html.match(/var\s+jwt\s*=\s*["']([^"']+)["']/);
-
-    if (!jwtMatch || !jwtMatch[1]) {
-      console.error(
-        "❌ No se pudo extraer el JWT de la respuesta Home de Red.cl (dev).",
-      );
-      console.error("🧪 Preview del HTML (500 chars):\n" + preview);
-
-      console.error(
-        "ℹ️ Status:",
-        status,
-        "Content-Type:",
-        contentType,
-        "Length:",
-        length,
-      );
-
-      throw new Error("No se pudo extraer el JWT de la respuesta");
-    }
-
-    jwtToken = jwtMatch[1];
-
-    tokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutos
-
-    console.log("✅ JWT token actualizado exitosamente (dev)");
+    // (esta sección quedó integrada en el bloque de desarrollo arriba y ya no es necesaria aquí)
   } catch (error: any) {
     console.error("❌ Error al refrescar JWT:", error.message);
     throw error;
