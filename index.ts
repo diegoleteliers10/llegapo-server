@@ -170,6 +170,75 @@ const routeLimiter = rateLimit({
 
 app.use(generalLimiter);
 
+// 🚌 Endpoint para tiempos de llegada filtrado por servicio (busId)
+app.get(
+  "/v1/stops/:codsimt/arrivals/busId",
+  stopArrivalsLimiter,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { codsimt } = req.params;
+      const { busId } = req.query as { busId?: string };
+
+      // Validar código de parada
+      const validation = validateStopCode(codsimt);
+      if (!validation.valid) {
+        res.status(400).json({
+          success: false,
+          error: validation.error,
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      if (!busId || typeof busId !== "string" || busId.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          error: "Parámetro 'busId' requerido (ej: ?busId=405)",
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      console.log(
+        `🚌 Consultando llegadas por servicio: paradero=${codsimt} busId=${busId}`,
+      );
+
+      // Obtener servicios desde Red.cl
+      const servicios = await getStopArrivals(codsimt);
+
+      // Filtrar por servicio solicitado (match por prefijo/igualdad insensible a mayúsculas)
+      const target = busId.toUpperCase();
+      const filtrados = servicios.filter((s: any) => {
+        const codigo = (s?.servicio ?? s?.service ?? "")
+          .toString()
+          .toUpperCase();
+        return codigo === target || codigo.startsWith(target);
+      });
+
+      console.log(
+        `✅ ${filtrados.length} arrivals para servicio ${busId} en paradero ${codsimt}`,
+      );
+
+      res.json({
+        success: true,
+        data: filtrados,
+        timestamp: Date.now(),
+      });
+    } catch (error: any) {
+      console.error(
+        `❌ Error obteniendo llegadas por servicio para ${req.params.codsimt}:`,
+        error.message,
+      );
+      res.status(500).json({
+        success: false,
+        data: [],
+        timestamp: Date.now(),
+        error: error.message,
+      });
+    }
+  },
+);
+
 // 🔄 Función para refrescar JWT
 async function refreshJwt(): Promise<void> {
   try {
@@ -300,14 +369,31 @@ async function getStopArrivals(stopCode: string): Promise<any> {
     }
 
     // Normalizar siempre a array desde data.servicios y loguear conteo
+
     let normalized: any[] = [];
 
     if (Array.isArray(data)) {
       normalized = data;
     } else if (data && typeof data === "object") {
-      // Red.cl devuelve un objeto con clave 'servicios' que contiene el arreglo de llegadas
+      // Red.cl devuelve un objeto con clave 'servicios' que contiene llegadas.
+      // Puede ser un array o un objeto (map) por servicio. Soportar ambos.
       const servicios = (data as any).servicios;
+
+      const serviciosType = Array.isArray(servicios)
+        ? "array"
+        : servicios && typeof servicios === "object"
+          ? "object"
+          : typeof servicios;
+
+      console.log(
+        `🔎 servicios type=${serviciosType} keys=` +
+          (servicios && typeof servicios === "object"
+            ? Object.keys(servicios).slice(0, 10).join(", ")
+            : "n/a"),
+      );
+
       if (Array.isArray(servicios)) {
+        // Caso esperado: arreglo de servicios
         normalized = servicios;
         console.log(
           `✅ Response obtenida para ${stopCode}: object [` +
@@ -319,17 +405,34 @@ async function getStopArrivals(stopCode: string): Promise<any> {
         console.log(
           `✅ ${normalized.length} arrivals encontrados para ${stopCode}`,
         );
+      } else if (servicios && typeof servicios === "object") {
+        // Caso alterno: objeto con claves de servicio -> convertir a array
+        try {
+          const values = Object.values(servicios);
+          if (Array.isArray(values)) {
+            normalized = values as any[];
+            console.log(
+              `✅ servicios convertido de objeto a array. count=${normalized.length}`,
+            );
+          } else {
+            normalized = [];
+            console.warn(
+              "⚠️ servicios es objeto pero Object.values no devolvió array.",
+            );
+          }
+        } catch (e) {
+          normalized = [];
+          console.warn(
+            "⚠️ Error convirtiendo servicios objeto a array:",
+            (e as Error)?.message,
+          );
+        }
       } else {
         console.warn(
           "⚠️ Formato inesperado de respuesta en predictorPlus/prediccion. Tipos y claves:",
 
-          {
-            keys: Object.keys(data as any).slice(0, 10),
-
-            type: typeof data,
-          },
+          { keys: Object.keys(data as any).slice(0, 10), type: typeof data },
         );
-
         normalized = [];
       }
     } else {
