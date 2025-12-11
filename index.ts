@@ -175,19 +175,48 @@ async function refreshJwt(): Promise<void> {
   try {
     console.log("🔄 Refrescando JWT token...");
 
-    // Hacer request a la página principal para obtener JWT
     const pageUrl = `${RED_BASE}/Home/`;
-    const { data: html } = await axios.get(pageUrl, {
+    const start = Date.now();
+    const response = await axios.get(pageUrl, {
       timeout: 10000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
       },
+
+      validateStatus: () => true,
     });
+    const durationMs = Date.now() - start;
+    const html = response.data;
+    const status = response.status;
+    const contentType = response.headers?.["content-type"];
+    const length = typeof html === "string" ? html.length : 0;
+    const preview = typeof html === "string" ? html.slice(0, 500) : "";
+    console.log(
+      `📥 Respuesta Red.cl Home - status=${status} duration=${durationMs}ms ct=${contentType} length=${length}`,
+    );
+    if (status >= 400) {
+      console.log(
+        `⚠️ Red.cl devolvió status ${status} en Home. Preview:\n${preview}`,
+      );
+    }
 
     // Extraer JWT del HTML
+
     const jwtMatch = html.match(/var\s+jwt\s*=\s*["']([^"']+)["']/);
     if (!jwtMatch || !jwtMatch[1]) {
+      console.error(
+        "❌ No se pudo extraer el JWT de la respuesta Home de Red.cl.",
+      );
+      console.error("🧪 Preview del HTML (500 chars):\n" + preview);
+      console.error(
+        "ℹ️ Status:",
+        status,
+        "Content-Type:",
+        contentType,
+        "Length:",
+        length,
+      );
       throw new Error("No se pudo extraer el JWT de la respuesta");
     }
 
@@ -218,10 +247,37 @@ async function getStopArrivals(stopCode: string): Promise<any> {
     });
     return data;
   } catch (error: any) {
-    console.error(
-      `❌ Error obteniendo llegadas para ${stopCode}:`,
-      error.message,
-    );
+    const isAxiosError = !!(error && error.isAxiosError);
+    if (isAxiosError) {
+      const status = error.response?.status;
+      const contentType = error.response?.headers?.["content-type"];
+      const data = error.response?.data;
+      const dataStr = typeof data === "string" ? data : JSON.stringify(data);
+      const preview = dataStr ? String(dataStr).slice(0, 500) : "";
+      console.error(
+        `❌ Error obteniendo llegadas (Axios) para ${stopCode} - status=${status} ct=${contentType}: ${error.message}`,
+      );
+      if (preview) {
+        console.error("🧪 Body preview (500 chars):\n" + preview);
+      }
+      const headers = error.response?.headers;
+      if (headers) {
+        const safeHeaders = Object.fromEntries(
+          Object.entries(headers).slice(0, 20),
+        );
+        console.error("🪪 Response headers (truncated):", safeHeaders);
+      }
+      console.error("🔗 Request URL:", error.config?.url);
+      console.error(
+        "🔐 JWT preview:",
+        jwtToken ? jwtToken.slice(0, 10) + "...(redacted)" : "none",
+      );
+    } else {
+      console.error(
+        `❌ Error obteniendo llegadas para ${stopCode}:`,
+        error.message,
+      );
+    }
     throw error;
   }
 }
