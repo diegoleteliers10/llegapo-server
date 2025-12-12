@@ -1,45 +1,120 @@
 import rateLimit from "express-rate-limit";
 import { Request, Response } from "express";
 import { RateLimitConfig } from "../types";
+ 
+ /**
+  * Rate limiter para endpoints de arrivals (stops)
+  * Producción: max 15 req/30s por IP
+  */
+ export const stopArrivalsLimiter = rateLimit({
+   windowMs: 30 * 1000, // 30 segundos
+   max: 15, // 15 requests por ventana por IP
+   standardHeaders: true,
+   legacyHeaders: false,
+   validate: true,
+   keyGenerator: (req: Request) => {
+     // Robust IP extraction behind proxies/CDNs
+     const h = req.headers;
+     const forwarded = (h["x-forwarded-for"] as string) || "";
+     const realIp = (h["x-real-ip"] as string) || "";
+     const cfIp = (h["cf-connecting-ip"] as string) || "";
+     const vercelIp = (h["x-vercel-ip"] as string) || "";
+ 
+     const candidate =
+       forwarded.split(",")[0]?.trim() ||
+       realIp ||
+       cfIp ||
+       vercelIp ||
+       req.ip ||
+       req.socket?.remoteAddress ||
+       "global";
+ 
+     return candidate;
+   },
+   skip: () => process.env.NODE_ENV !== "production", // Solo en producción
+   handler: (req: Request, res: Response) => {
+     res.status(429).json({
+       success: false,
+       error: "Demasiadas solicitudes: límite alcanzado para paraderos",
+       timestamp: Date.now(),
+     });
+   },
+ });
 
-/**
- * Rate limiter para endpoints de arrivals
- */
-export const stopArrivalsLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
-  max: 1000, // Muy permisivo para debugging
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: false, // Deshabilitar todas las validaciones
-  keyGenerator: () => "global", // Usar una key global para evitar problemas de IP
-  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
-});
 
 /**
  * Rate limiter para endpoints de rutas
  */
-export const routeLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 1000, // Muy permisivo para debugging
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: false, // Deshabilitar todas las validaciones
-  keyGenerator: () => "global", // Usar una key global
-  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
-});
+ export const routeLimiter = rateLimit({
+   windowMs: 30 * 1000, // 30 segundos
+   max: 20, // 20 requests por ventana por IP
+   standardHeaders: true,
+   legacyHeaders: false,
+   validate: true,
+   keyGenerator: (req: Request) => {
+     const h = req.headers;
+     const forwarded = (h["x-forwarded-for"] as string) || "";
+     const realIp = (h["x-real-ip"] as string) || "";
+     const cfIp = (h["cf-connecting-ip"] as string) || "";
+     const vercelIp = (h["x-vercel-ip"] as string) || "";
+ 
+     const candidate =
+       forwarded.split(",")[0]?.trim() ||
+       realIp ||
+       cfIp ||
+       vercelIp ||
+       req.ip ||
+       req.socket?.remoteAddress ||
+       "global";
+ 
+     return candidate;
+   },
+   skip: () => process.env.NODE_ENV !== "production",
+   handler: (req: Request, res: Response) => {
+     res.status(429).json({
+       success: false,
+       error: "Demasiadas solicitudes: límite alcanzado para rutas",
+       timestamp: Date.now(),
+     });
+   },
+ });
 
 /**
  * Rate limiter general para toda la aplicación
  */
-export const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 1000, // Muy permisivo para debugging
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: false, // Deshabilitar todas las validaciones
-  keyGenerator: () => "global", // Usar una key global
-  skip: () => process.env.NODE_ENV !== "production", // Solo aplicar en producción
-});
+ export const generalLimiter = rateLimit({
+   windowMs: 15 * 60 * 1000, // 15 minutos
+   max: 1000, // general alto
+   standardHeaders: true,
+   legacyHeaders: false,
+   validate: true,
+   keyGenerator: (req: Request) => {
+     const h = req.headers;
+     const forwarded = (h["x-forwarded-for"] as string) || "";
+     const realIp = (h["x-real-ip"] as string) || "";
+     const cfIp = (h["cf-connecting-ip"] as string) || "";
+     const vercelIp = (h["x-vercel-ip"] as string) || "";
+ 
+     const candidate =
+       forwarded.split(",")[0]?.trim() ||
+       realIp ||
+       cfIp ||
+       vercelIp ||
+       req.ip ||
+       req.socket?.remoteAddress ||
+       "global";
+ 
+     return candidate;
+   },
+   skip: () => process.env.NODE_ENV !== "production",
+   handler: (req: Request, res: Response) => {
+     res.status(429).json({
+       success: false,
+       error: "Demasiadas solicitudes: límite general alcanzado",
+       timestamp: Date.now(),
+     });
+   },
+ });
 
 /**
  * Rate limiter más estricto para endpoints críticos
